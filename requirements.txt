@@ -1,0 +1,3 @@
+# GUI uses tkinter (standard library).
+# For reliable audio playback (incl. MP3/OGG) this app uses pygame.
+pygame>=2.0
