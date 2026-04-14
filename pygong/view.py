@@ -1,323 +1,183 @@
 from __future__ import annotations
 
 import datetime
-import tkinter as tk
-from tkinter import filedialog, messagebox
 from typing import Callable
 
-# ── Farben & Fonts ─────────────────────────────────────────────────────────────
+from PyQt6.QtCore import QTime
+from PyQt6.QtGui import QFont, QTextCursor
+from PyQt6.QtWidgets import (
+    QFileDialog,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QSpinBox,
+    QTimeEdit,
+    QDoubleSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
 
-BG = "#1a1a2e"
-SURFACE = "#16213e"
-CARD = "#0f3460"
-ACCENT = "#e94560"
-ACCENT2 = "#4fc3f7"
-TEXT = "#e0e0e0"
-TEXT_DIM = "#8899aa"
-MONO = ("Consolas", 9)
 
-FONT_H1 = ("Segoe UI", 17, "bold")
-FONT_H2 = ("Segoe UI", 10, "bold")
-FONT_BODY = ("Segoe UI", 9)
-FONT_BIG = ("Segoe UI", 22, "bold")
+class IntervalTimerView(QWidget):
+    def __init__(self, *, on_close: Callable[[], None]):
+        super().__init__()
+        self._on_close = on_close
 
+        self.setWindowTitle("Interval Timer")
+        self.setMinimumWidth(520)
 
-class IntervalTimerView:
-    def __init__(
-        self,
-        root: tk.Tk,
-        *,
-        audio_backend: str | None,
-        on_start: Callable[[], None],
-        on_stop: Callable[[], None],
-        on_browse_sound: Callable[[], None],
-        on_reset_sound: Callable[[], None],
-        on_close: Callable[[], None],
-    ):
-        self.root = root
-        self._on_start = on_start
-        self._on_stop = on_stop
-        self._on_browse_sound = on_browse_sound
-        self._on_reset_sound = on_reset_sound
-        self._on_close_cb = on_close
+        self._build_ui()
 
-        self.root.title("Interval Timer")
-        self.root.configure(bg=BG)
-        self.root.resizable(False, False)
+    # ── UI ───────────────────────────────────────────────────────────────
 
-        self.sound_path: str = ""
-        self.sound_label = tk.StringVar(value="")
+    def _build_ui(self) -> None:
+        layout = QVBoxLayout(self)
 
-        self.countdown_var = tk.StringVar(value="—")
-        self.next_time_var = tk.StringVar(value="—")
-        self.remaining_var = tk.StringVar(value="—")
-        self.status_var = tk.StringVar(value="Bereit")
+        title = QLabel("Interval Timer")
+        title_font = QFont()
+        title_font.setPointSize(16)
+        title_font.setBold(True)
+        title.setFont(title_font)
+        layout.addWidget(title)
 
-        self._build_ui(audio_backend)
-        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        settings_box = QGroupBox("Einstellungen")
+        settings_layout = QGridLayout(settings_box)
 
-    # ── UI ──────────────────────────────────────────────────────────────────
+        settings_layout.addWidget(QLabel("Startzeit (HH:MM):"), 0, 0)
+        self.start_time_edit = QTimeEdit()
+        self.start_time_edit.setDisplayFormat("HH:mm")
+        self.start_time_edit.setTime(QTime.currentTime())
+        settings_layout.addWidget(self.start_time_edit, 0, 1)
 
-    def _build_ui(self, audio_backend: str | None) -> None:
-        root = self.root
+        settings_layout.addWidget(QLabel("Intervall (Minuten):"), 1, 0)
+        self.interval_spin = QDoubleSpinBox()
+        self.interval_spin.setMinimum(0.01)
+        self.interval_spin.setMaximum(60_000)
+        self.interval_spin.setDecimals(2)
+        self.interval_spin.setValue(10.0)
+        settings_layout.addWidget(self.interval_spin, 1, 1)
 
-        hdr = tk.Frame(root, bg=BG)
-        hdr.pack(fill="x", padx=20, pady=(18, 4))
-        tk.Label(hdr, text="⏱  Interval Timer", font=FONT_H1, bg=BG, fg=TEXT).pack(
-            side="left"
-        )
-        backend_txt = f"Audio: {audio_backend or 'Fallback (kein Ton)'}"
-        tk.Label(hdr, text=backend_txt, font=FONT_BODY, bg=BG, fg=TEXT_DIM).pack(
-            side="right", anchor="s", pady=4
-        )
+        settings_layout.addWidget(QLabel("Anzahl Töne:"), 2, 0)
+        self.count_spin = QSpinBox()
+        self.count_spin.setMinimum(1)
+        self.count_spin.setMaximum(1_000_000)
+        self.count_spin.setValue(5)
+        settings_layout.addWidget(self.count_spin, 2, 1)
 
-        sep = tk.Frame(root, bg=ACCENT, height=2)
-        sep.pack(fill="x", padx=20, pady=(0, 12))
+        settings_layout.addWidget(QLabel("Soundfile:"), 3, 0)
+        sound_row = QHBoxLayout()
+        self.sound_label = QLabel("Standard-Ton (Beep)")
+        self.sound_label.setMinimumWidth(260)
+        sound_row.addWidget(self.sound_label, 1)
+        self.browse_btn = QPushButton("Auswählen …")
+        self.reset_sound_btn = QPushButton("Reset")
+        sound_row.addWidget(self.browse_btn)
+        sound_row.addWidget(self.reset_sound_btn)
+        settings_layout.addLayout(sound_row, 3, 1)
 
-        card = self._card(root, " Einstellungen ")
-        card.pack(fill="x", padx=20, pady=4)
+        layout.addWidget(settings_box)
 
-        self._row(
-            card,
-            "Startzeit (HH:MM):",
-            (self._entry, {"name": "start_time", "width": 9, "default": datetime.datetime.now().strftime("%H:%M")}),
-        )
-        self._row(
-            card,
-            "Intervall (Minuten):",
-            (self._entry, {"name": "interval", "width": 9, "default": "10"}),
-        )
-        self._row(
-            card,
-            "Anzahl Töne:",
-            (self._entry, {"name": "count", "width": 9, "default": "5"}),
-        )
+        btn_row = QHBoxLayout()
+        self.start_btn = QPushButton("Starten")
+        self.stop_btn = QPushButton("Stoppen")
+        self.stop_btn.setEnabled(False)
+        btn_row.addWidget(self.start_btn)
+        btn_row.addWidget(self.stop_btn)
+        layout.addLayout(btn_row)
 
-        sf = tk.Frame(card, bg=SURFACE)
-        tk.Label(
-            sf,
-            text="Tondatei:",
-            font=FONT_BODY,
-            bg=SURFACE,
-            fg=TEXT,
-            width=18,
-            anchor="w",
-        ).grid(row=0, column=0, sticky="w", pady=4)
+        status_box = QGroupBox("Status")
+        status_layout = QGridLayout(status_box)
 
-        inner = tk.Frame(sf, bg=SURFACE)
-        inner.grid(row=0, column=1, sticky="w")
+        self.countdown_label = QLabel("—")
+        countdown_font = QFont()
+        countdown_font.setPointSize(22)
+        countdown_font.setBold(True)
+        self.countdown_label.setFont(countdown_font)
+        status_layout.addWidget(self.countdown_label, 0, 0, 1, 2)
 
-        tk.Label(
-            inner,
-            textvariable=self.sound_label,
-            font=FONT_BODY,
-            bg=CARD,
-            fg=ACCENT2,
-            width=22,
-            anchor="w",
-            padx=4,
-            pady=2,
-            relief="flat",
-        ).pack(side="left", padx=(0, 6))
+        status_layout.addWidget(QLabel("Nächster Ton um:"), 1, 0)
+        self.next_time_label = QLabel("—")
+        status_layout.addWidget(self.next_time_label, 1, 1)
 
-        self._btn(inner, "📂", self._on_browse_sound, small=True).pack(
-            side="left", padx=2
-        )
-        self._btn(inner, "↩", self._on_reset_sound, small=True).pack(
-            side="left", padx=2
-        )
-        sf.pack(fill="x", padx=10, pady=2)
+        status_layout.addWidget(QLabel("Töne verbleibend:"), 2, 0)
+        self.remaining_label = QLabel("—")
+        status_layout.addWidget(self.remaining_label, 2, 1)
 
-        bf = tk.Frame(root, bg=BG)
-        bf.pack(pady=10)
-        self.start_btn = self._btn(bf, "▶  Starten", self._on_start, w=14)
-        self.start_btn.pack(side="left", padx=8)
-        self.stop_btn = self._btn(bf, "⏹  Stoppen", self._on_stop, w=14, accent=False)
-        self.stop_btn.pack(side="left", padx=8)
-        self.stop_btn.configure(state="disabled")
+        status_layout.addWidget(QLabel("Status:"), 3, 0)
+        self.status_label = QLabel("Bereit")
+        status_layout.addWidget(self.status_label, 3, 1)
 
-        sc = self._card(root, " Status ")
-        sc.pack(fill="x", padx=20, pady=4)
+        layout.addWidget(status_box)
 
-        tk.Label(sc, textvariable=self.countdown_var, font=FONT_BIG, bg=SURFACE, fg=ACCENT2).pack(
-            anchor="center", pady=(8, 2)
-        )
-        tk.Label(sc, text="bis zum nächsten Ton", font=FONT_BODY, bg=SURFACE, fg=TEXT_DIM).pack(
-            anchor="center"
-        )
+        log_box = QGroupBox("Log")
+        log_layout = QVBoxLayout(log_box)
+        self.log_text = QPlainTextEdit()
+        self.log_text.setReadOnly(True)
+        log_font = QFont("Consolas", 9)
+        self.log_text.setFont(log_font)
+        log_layout.addWidget(self.log_text)
+        layout.addWidget(log_box)
 
-        details = tk.Frame(sc, bg=SURFACE)
-        details.pack(fill="x", padx=10, pady=8)
-
-        self._status_row(details, 0, "Nächster Ton um:", self.next_time_var)
-        self._status_row(details, 1, "Töne verbleibend:", self.remaining_var)
-        self._status_row(details, 2, "Status:", self.status_var)
-
-        lc = self._card(root, " Log ")
-        lc.pack(fill="x", padx=20, pady=(4, 16))
-
-        self.log_text = tk.Text(
-            lc,
-            height=6,
-            width=54,
-            bg=BG,
-            fg=TEXT_DIM,
-            font=MONO,
-            state="disabled",
-            relief="flat",
-            insertbackground=TEXT,
-            selectbackground=CARD,
-        )
-        sb = tk.Scrollbar(lc, orient="vertical", command=self.log_text.yview)
-        self.log_text.configure(yscrollcommand=sb.set)
-        self.log_text.pack(side="left", fill="both", expand=True, padx=(6, 0), pady=4)
-        sb.pack(side="right", fill="y", pady=4, padx=(0, 4))
-
-    # ── UI-Helfer ───────────────────────────────────────────────────────────
-
-    def _card(self, parent: tk.Misc, title: str) -> tk.Frame:
-        outer = tk.Frame(parent, bg=ACCENT, bd=0)
-        outer.pack_propagate(False)
-        tk.Label(outer, text=title, font=FONT_H2, bg=ACCENT, fg=BG, padx=6).pack(
-            anchor="w"
-        )
-        inner = tk.Frame(outer, bg=SURFACE, padx=8, pady=6)
-        inner.pack(fill="both", expand=True, padx=1, pady=(0, 1))
-        return inner
-
-    def _row(self, parent: tk.Misc, label: str, widget_spec) -> None:
-        f = tk.Frame(parent, bg=SURFACE)
-        tk.Label(
-            f,
-            text=label,
-            font=FONT_BODY,
-            bg=SURFACE,
-            fg=TEXT,
-            width=18,
-            anchor="w",
-        ).grid(row=0, column=0, sticky="w", pady=4)
-
-        constructor, kwargs = widget_spec
-        constructor(f, **kwargs).grid(row=0, column=1, sticky="w", padx=4)
-        f.pack(fill="x", padx=10, pady=2)
-
-    def _entry(self, parent: tk.Misc, name: str, width: int, default: str) -> tk.Entry:
-        var = tk.StringVar(value=default)
-        setattr(self, f"{name}_var", var)
-        return tk.Entry(
-            parent,
-            textvariable=var,
-            width=width,
-            bg=CARD,
-            fg=TEXT,
-            insertbackground=TEXT,
-            relief="flat",
-            font=FONT_BODY,
-        )
-
-    def _btn(
-        self,
-        parent: tk.Misc,
-        text: str,
-        cmd: Callable[[], None],
-        w: int = 10,
-        *,
-        accent: bool = True,
-        small: bool = False,
-    ) -> tk.Button:
-        return tk.Button(
-            parent,
-            text=text,
-            command=cmd,
-            bg=ACCENT if accent else CARD,
-            fg="#fff",
-            activebackground=ACCENT2 if accent else ACCENT,
-            activeforeground="#fff",
-            relief="flat",
-            cursor="hand2",
-            font=("Segoe UI", 8) if small else FONT_H2,
-            width=w if not small else 3,
-            padx=0 if small else 6,
-            pady=3,
-        )
-
-    def _status_row(self, parent: tk.Misc, row: int, label: str, var: tk.StringVar) -> None:
-        tk.Label(
-            parent,
-            text=label,
-            font=FONT_BODY,
-            bg=SURFACE,
-            fg=TEXT_DIM,
-            anchor="w",
-            width=20,
-        ).grid(row=row, column=0, sticky="w", pady=2)
-        tk.Label(
-            parent,
-            textvariable=var,
-            font=FONT_BODY,
-            bg=SURFACE,
-            fg=TEXT,
-            anchor="w",
-        ).grid(row=row, column=1, sticky="w", padx=8)
-
-    # ── Public API (Controller → View) ──────────────────────────────────────
-
-    def set_sound(self, path: str, label: str) -> None:
-        self.sound_path = path
-        self.sound_label.set(label)
+    # ── Dialoge / Input ──────────────────────────────────────────────────
 
     def ask_sound_file(self) -> str:
-        return filedialog.askopenfilename(
-            title="Tondatei auswählen",
-            filetypes=[("Audio", "*.wav *.mp3 *.ogg"), ("Alle Dateien", "*.*")],
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Tondatei auswählen",
+            "",
+            "Audio (*.wav *.mp3 *.ogg);;Alle Dateien (*.*)",
         )
+        return path
 
     def show_error(self, title: str, message: str) -> None:
-        messagebox.showerror(title, message)
+        QMessageBox.critical(self, title, message)
 
     def show_info(self, title: str, message: str) -> None:
-        messagebox.showinfo(title, message)
+        QMessageBox.information(self, title, message)
 
-    def get_raw_inputs(self) -> tuple[str, str, str]:
-        return (
-            self.start_time_var.get().strip(),
-            self.interval_var.get().strip(),
-            self.count_var.get().strip(),
-        )
+    def get_inputs(self) -> tuple[datetime.time, float, int]:
+        t = self.start_time_edit.time()
+        start_time = datetime.time(hour=t.hour(), minute=t.minute())
+        return start_time, float(self.interval_spin.value()), int(self.count_spin.value())
+
+    # ── Status / Log ─────────────────────────────────────────────────────
+
+    def set_sound_label(self, text: str) -> None:
+        self.sound_label.setText(text)
 
     def set_running(self, running: bool) -> None:
-        self.start_btn.configure(state="disabled" if running else "normal")
-        self.stop_btn.configure(state="normal" if running else "disabled")
+        self.start_btn.setEnabled(not running)
+        self.stop_btn.setEnabled(running)
 
     def reset_status(self) -> None:
-        self.status_var.set("Bereit")
-        self.countdown_var.set("—")
-        self.next_time_var.set("—")
-        self.remaining_var.set("—")
+        self.status_label.setText("Bereit")
+        self.countdown_label.setText("—")
+        self.next_time_label.setText("—")
+        self.remaining_label.setText("—")
 
     def update_countdown(self, text: str) -> None:
-        self.countdown_var.set(text)
+        self.countdown_label.setText(text)
 
     def update_next_time(self, text: str) -> None:
-        self.next_time_var.set(text)
+        self.next_time_label.setText(text)
 
     def update_remaining(self, text: str) -> None:
-        self.remaining_var.set(text)
+        self.remaining_label.setText(text)
 
     def update_status(self, text: str) -> None:
-        self.status_var.set(text)
-
-    def call_in_ui_thread(self, fn: Callable, *args, **kwargs) -> None:
-        self.root.after(0, fn, *args, **kwargs)
+        self.status_label.setText(text)
 
     def log(self, msg: str) -> None:
         ts = datetime.datetime.now().strftime("%H:%M:%S")
-        self.log_text.configure(state="normal")
-        self.log_text.insert("end", f"[{ts}] {msg}\n")
-        self.log_text.see("end")
-        self.log_text.configure(state="disabled")
+        self.log_text.appendPlainText(f"[{ts}] {msg}")
+        self.log_text.moveCursor(QTextCursor.MoveOperation.End)
 
-    # ── Window close ───────────────────────────────────────────────────────
+    # ── Close ────────────────────────────────────────────────────────────
 
-    def _on_close(self) -> None:
-        self._on_close_cb()
+    def closeEvent(self, event):  # type: ignore[override]
+        self._on_close()
+        event.accept()

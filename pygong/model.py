@@ -5,45 +5,14 @@ import datetime
 import math
 import os
 import struct
-import sys
 import tempfile
 import wave
 
-AUDIO_BACKEND: str | None = None
+from PyQt6.QtCore import QUrl
+from PyQt6.QtMultimedia import QSoundEffect
 
-
-def _init_audio_backend() -> str | None:
-    """Initialisiert das Audio-Backend (optional) und gibt dessen Namen zurück."""
-    global AUDIO_BACKEND
-
-    if AUDIO_BACKEND is not None:
-        return AUDIO_BACKEND
-
-    try:
-        import pygame  # type: ignore
-
-        pygame.mixer.pre_init(44100, -16, 1, 512)
-        pygame.mixer.init()
-        AUDIO_BACKEND = "pygame"
-        return AUDIO_BACKEND
-    except Exception:
-        pass
-
-    if sys.platform == "win32":
-        try:
-            import winsound  # noqa: F401
-
-            AUDIO_BACKEND = "winsound"
-            return AUDIO_BACKEND
-        except ImportError:
-            pass
-
-    AUDIO_BACKEND = None
-    return AUDIO_BACKEND
-
-
-# Backward-compatible: Backend wie zuvor beim Import initialisieren.
-AUDIO_BACKEND = _init_audio_backend()
+_SFX = QSoundEffect()
+_SFX.setVolume(1.0)
 
 
 def create_default_beep(
@@ -75,26 +44,10 @@ def create_default_beep(
 
 
 def play_sound(path: str) -> None:
-    """Spielt eine WAV/MP3/OGG-Datei asynchron ab."""
-    if AUDIO_BACKEND == "pygame":
-        try:
-            import pygame  # type: ignore
-
-            pygame.mixer.music.load(path)
-            pygame.mixer.music.play()
-        except Exception as e:
-            print(f"[Audio-Fehler] {e}", file=sys.stderr)
-    elif AUDIO_BACKEND == "winsound":
-        try:
-            import winsound
-
-            winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
-        except Exception as e:
-            print(f"[Audio-Fehler] {e}", file=sys.stderr)
-    else:
-        # Fallback: Terminal-Bell (wenn verfügbar)
-        sys.stdout.write("\a")
-        sys.stdout.flush()
+    """Spielt eine WAV-Datei asynchron ab (QtMultimedia)."""
+    # QSoundEffect unterstützt WAV zuverlässig; andere Formate hängen von Plattform/Codecs ab.
+    _SFX.setSource(QUrl.fromLocalFile(os.path.abspath(path)))
+    _SFX.play()
 
 
 @dataclass(frozen=True)
@@ -102,7 +55,6 @@ class TimerConfig:
     start_dt: datetime.datetime
     interval_sec: float
     count: int
-    sound_path: str
 
 
 def compute_skipped_intervals(

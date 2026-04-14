@@ -10,7 +10,9 @@ MVC-Aufteilung:
 - Controller: pygong/controller.py
 """
 
-import tkinter as tk
+import sys
+
+from PyQt6.QtWidgets import QApplication
 
 from pygong.controller import IntervalTimerController
 
@@ -18,9 +20,10 @@ from pygong.controller import IntervalTimerController
 # ── Einstiegspunkt ─────────────────────────────────────────────────────────────
 
 def main():
-    root = tk.Tk()
-    IntervalTimerController(root)
-    root.mainloop()
+    app = QApplication(sys.argv)
+    controller = IntervalTimerController()
+    controller.view.show()
+    raise SystemExit(app.exec())
 
 
 if __name__ == "__main__":
