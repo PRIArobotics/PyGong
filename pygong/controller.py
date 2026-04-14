@@ -5,9 +5,10 @@ import os
 import threading
 import time
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, QUrl, pyqtSignal
+from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 
-from .model import TimerConfig, compute_skipped_intervals, create_default_beep, play_sound
+from .model import TimerConfig, compute_skipped_intervals, create_default_beep
 from .view import IntervalTimerView
 
 
@@ -18,6 +19,7 @@ class _UiBridge(QObject):
     status = pyqtSignal(str)
     log = pyqtSignal(str)
     running = pyqtSignal(bool)
+    play_sound = pyqtSignal(str)
 
 
 class IntervalTimerController:
@@ -30,6 +32,12 @@ class IntervalTimerController:
 
         self._ui = _UiBridge()
 
+        self._audio_output = QAudioOutput()
+        self._audio_output.setVolume(1.0)
+        self._player = QMediaPlayer()
+        self._player.setAudioOutput(self._audio_output)
+        self._player.errorOccurred.connect(self._on_audio_error)  # type: ignore[attr-defined]
+
         self.view = IntervalTimerView(on_close=self.on_close)
 
         # Wire UI signals -> view updates
@@ -39,6 +47,7 @@ class IntervalTimerController:
         self._ui.status.connect(self.view.update_status)
         self._ui.log.connect(self.view.log)
         self._ui.running.connect(self.view.set_running)
+        self._ui.play_sound.connect(self._play_sound)
 
         # Wire view controls -> controller
         self.view.start_btn.clicked.connect(self.start)  # type: ignore[arg-type]
@@ -66,6 +75,22 @@ class IntervalTimerController:
 
     def _effective_sound_path(self) -> str:
         return self.sound_path or self._default_sound
+
+    def _play_sound(self, path: str) -> None:
+        abs_path = os.path.abspath(path)
+        if not os.path.exists(abs_path):
+            self._ui.log.emit(f"⚠️ Sound-Datei nicht gefunden: {abs_path}")
+            return
+
+        url = QUrl.fromLocalFile(abs_path)
+        self._player.setSource(url)
+        self._player.play()
+
+    def _on_audio_error(self, *args) -> None:
+        # Keep it simple: log Qt's current error string.
+        msg = self._player.errorString()
+        if msg:
+            self._ui.log.emit(f"⚠️ Audio-Fehler: {msg}")
 
     # ── Eingaben / Validierung ─────────────────────────────────────────────
 
@@ -172,7 +197,7 @@ class IntervalTimerController:
             if self._stop_event.is_set():
                 return
 
-            play_sound(self._effective_sound_path())
+            self._ui.play_sound.emit(self._effective_sound_path())
             now_s = datetime.datetime.now().strftime("%H:%M:%S")
             self._ui.log.emit(f"🔔 Ton {i}/{count} um {now_s}")
             self._ui.status.emit(f"✔ Ton {i}/{count} gespielt")
