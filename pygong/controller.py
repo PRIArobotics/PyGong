@@ -53,25 +53,66 @@ class IntervalTimerController:
         self.view.start_btn.clicked.connect(self.start)  # type: ignore[arg-type]
         self.view.stop_btn.clicked.connect(self.stop)  # type: ignore[arg-type]
         self.view.browse_btn.clicked.connect(self.browse_sound)  # type: ignore[arg-type]
-        self.view.reset_sound_btn.clicked.connect(self.reset_sound)  # type: ignore[arg-type]
+        self.view.sound_combo.currentIndexChanged.connect(self.on_sound_selected)  # type: ignore[arg-type]
 
-        self._set_default_sound_label()
+        self._load_gongs()
 
     # ── Sound ─────────────────────────────────────────────────────────────
 
-    def _set_default_sound_label(self) -> None:
-        self.view.set_sound_label("Standard-Ton (Beep)")
+    def _load_gongs(self) -> None:
+        """Load gongs from the gongs folder and populate the dropdown."""
+        gongs_dir = self._get_gongs_dir()
+        
+        # Block signals during initialization to avoid multiple triggers
+        self.view.sound_combo.blockSignals(True)
+        
+        # Add default beep as first option
+        self.view.sound_combo.addItem("Standard-Ton (Beep)", None)
+        
+        # Scan gongs directory for audio files
+        audio_extensions = {'.wav', '.mp3', '.ogg', '.flac', '.m4a'}
+        
+        if os.path.isdir(gongs_dir):
+            try:
+                files = sorted(os.listdir(gongs_dir))
+                for filename in files:
+                    file_path = os.path.join(gongs_dir, filename)
+                    if os.path.isfile(file_path):
+                        _, ext = os.path.splitext(filename.lower())
+                        if ext in audio_extensions:
+                            self.view.sound_combo.addItem(filename, file_path)
+            except (OSError, PermissionError) as e:
+                self.view.log(f"⚠️ Fehler beim Laden der Gongs: {e}")
+        
+        # Unblock signals and set initial selection
+        self.view.sound_combo.blockSignals(False)
+        self.view.sound_combo.setCurrentIndex(0)  # Select default beep
+        self.sound_path = None  # Ensure sound_path is None for default
+
+    def _get_gongs_dir(self) -> str:
+        """Get the gongs directory path."""
+        return "gongs"
+
+    def on_sound_selected(self, index: int) -> None:
+        """Handle when a gong is selected from the dropdown."""
+        self.sound_path = self.view.sound_combo.itemData(index)
+        selected_name = self.view.sound_combo.itemText(index)
+        self.view.log(f"🎵 Gong ausgewählt: {selected_name}")
 
     def browse_sound(self) -> None:
+        """Open file dialog to browse for a custom sound file."""
         path = self.view.ask_sound_file()
         if path:
-            self.sound_path = path
-            self.view.set_sound_label(os.path.basename(path))
-            self.view.log(f"Sound: {os.path.basename(path)}")
-
-    def reset_sound(self) -> None:
-        self.sound_path = None
-        self._set_default_sound_label()
+            # Add to dropdown and select it
+            filename = os.path.basename(path)
+            # Check if already in combo
+            index = self.view.sound_combo.findData(path)
+            if index == -1:
+                # Add new entry
+                self.view.sound_combo.addItem(filename, path)
+                index = self.view.sound_combo.count() - 1
+            self.view.sound_combo.setCurrentIndex(index)
+            self.view.log(f"🎵 Datei ausgewählt: {filename}")
 
     def _effective_sound_path(self) -> str:
         return self.sound_path or self._default_sound
@@ -84,7 +125,10 @@ class IntervalTimerController:
 
         url = QUrl.fromLocalFile(abs_path)
         self._player.setSource(url)
+        # Give the player a moment to prepare
+        time.sleep(0.05)
         self._player.play()
+        self._ui.log.emit(f"🔊 Spiele: {abs_path}")
 
     def _on_audio_error(self, *args) -> None:
         # Keep it simple: log Qt's current error string.

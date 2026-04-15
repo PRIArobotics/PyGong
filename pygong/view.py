@@ -6,6 +6,7 @@ from typing import Callable
 from PyQt6.QtCore import QTime
 from PyQt6.QtGui import QFont, QTextCursor
 from PyQt6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QGridLayout,
     QGroupBox,
@@ -70,13 +71,11 @@ class IntervalTimerView(QWidget):
 
         settings_layout.addWidget(QLabel("Soundfile:"), 3, 0)
         sound_row = QHBoxLayout()
-        self.sound_label = QLabel("Standard-Ton (Beep)")
-        self.sound_label.setMinimumWidth(260)
-        sound_row.addWidget(self.sound_label, 1)
+        self.sound_combo = QComboBox()
+        self.sound_combo.setMinimumWidth(260)
+        sound_row.addWidget(self.sound_combo, 1)
         self.browse_btn = QPushButton("Auswählen …")
-        self.reset_sound_btn = QPushButton("Reset")
         sound_row.addWidget(self.browse_btn)
-        sound_row.addWidget(self.reset_sound_btn)
         settings_layout.addLayout(sound_row, 3, 1)
 
         layout.addWidget(settings_box)
@@ -145,9 +144,6 @@ class IntervalTimerView(QWidget):
         return start_time, float(self.interval_spin.value()), int(self.count_spin.value())
 
     # ── Status / Log ─────────────────────────────────────────────────────
-
-    def set_sound_label(self, text: str) -> None:
-        self.sound_label.setText(text)
 
     def set_running(self, running: bool) -> None:
         self.start_btn.setEnabled(not running)
