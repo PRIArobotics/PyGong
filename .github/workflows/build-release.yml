@@ -31,12 +31,12 @@ jobs:
     - name: Build executable (Windows)
       if: runner.os == 'Windows'
       run: |
-        pyinstaller --onefile --windowed --name PyGong interval_timer.py
+        pyinstaller --onefile --windowed --name PyGong --add-data "gongs;gongs" interval_timer.py
     
     - name: Build executable (macOS/Linux)
       if: runner.os != 'Windows'
       run: |
-        pyinstaller --onefile --windowed --name PyGong interval_timer.py
+        pyinstaller --onefile --windowed --name PyGong --add-data "gongs:gongs" interval_timer.py
     
     - name: Rename Linux executable
       if: runner.os == 'Linux'
