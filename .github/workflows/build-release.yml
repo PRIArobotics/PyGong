@@ -1,0 +1,97 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.11']
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Build executable (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        pyinstaller --onefile --windowed --name PyGong --icon=icon.ico interval_timer.py
+    
+    - name: Build executable (macOS/Linux)
+      if: runner.os != 'Windows'
+      run: |
+        pyinstaller --onefile --windowed --name PyGong interval_timer.py
+    
+    - name: Upload artifacts (Windows)
+      if: runner.os == 'Windows'
+      uses: actions/upload-artifact@v4
+      with:
+        name: PyGong-windows
+        path: dist/PyGong.exe
+    
+    - name: Upload artifacts (macOS)
+      if: runner.os == 'macOS'
+      uses: actions/upload-artifact@v4
+      with:
+        name: PyGong-macos
+        path: dist/PyGong
+    
+    - name: Upload artifacts (Linux)
+      if: runner.os == 'Linux'
+      uses: actions/upload-artifact@v4
+      with:
+        name: PyGong-linux
+        path: dist/PyGong
+  
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download Windows artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: PyGong-windows
+        path: artifacts/windows
+    
+    - name: Download macOS artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: PyGong-macos
+        path: artifacts/macos
+    
+    - name: Download Linux artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: PyGong-linux
+        path: artifacts/linux
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/windows/PyGong.exe
+          artifacts/macos/PyGong
+          artifacts/linux/PyGong
+        draft: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

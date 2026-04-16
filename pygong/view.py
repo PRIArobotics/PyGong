@@ -148,6 +148,9 @@ class IntervalTimerView(QWidget):
     def set_running(self, running: bool) -> None:
         self.start_btn.setEnabled(not running)
         self.stop_btn.setEnabled(running)
+        # Sound-Einstellungen bleiben während Laufzeit änderbar
+        self.sound_combo.setEnabled(True)
+        self.browse_btn.setEnabled(True)
 
     def reset_status(self) -> None:
         self.status_label.setText("Bereit")

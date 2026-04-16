@@ -241,7 +241,9 @@ class IntervalTimerController:
             if self._stop_event.is_set():
                 return
 
-            self._ui.play_sound.emit(self._effective_sound_path())
+            # Verwende den aktuellen Sound-Pfad (kann während Laufzeit geändert worden sein)
+            current_sound = self._effective_sound_path()
+            self._ui.play_sound.emit(current_sound)
             now_s = datetime.datetime.now().strftime("%H:%M:%S")
             self._ui.log.emit(f"🔔 Ton {i}/{count} um {now_s}")
             self._ui.status.emit(f"✔ Ton {i}/{count} gespielt")
