@@ -1,2 +1,4 @@
 # GUI + (optional) audio playback via QtMultimedia.
 PyQt6>=6.5
+PyInstaller>=6.0
+
