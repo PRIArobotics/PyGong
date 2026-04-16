@@ -31,7 +31,7 @@ jobs:
     - name: Build executable (Windows)
       if: runner.os == 'Windows'
       run: |
-        pyinstaller --onefile --windowed --name PyGong --icon=icon.ico interval_timer.py
+        pyinstaller --onefile --windowed --name PyGong interval_timer.py
     
     - name: Build executable (macOS/Linux)
       if: runner.os != 'Windows'
