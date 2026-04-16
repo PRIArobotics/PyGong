@@ -38,6 +38,16 @@ jobs:
       run: |
         pyinstaller --onefile --windowed --name PyGong interval_timer.py
     
+    - name: Rename Linux executable
+      if: runner.os == 'Linux'
+      run: |
+        mv dist/PyGong dist/PyGong-linux
+    
+    - name: Rename macOS executable
+      if: runner.os == 'macOS'
+      run: |
+        mv dist/PyGong dist/PyGong-macos
+    
     - name: Upload artifacts (Windows)
       if: runner.os == 'Windows'
       uses: actions/upload-artifact@v7
@@ -50,14 +60,14 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: PyGong-macos
-        path: dist/PyGong
+        path: dist/PyGong-macos
     
     - name: Upload artifacts (Linux)
       if: runner.os == 'Linux'
       uses: actions/upload-artifact@v7
       with:
         name: PyGong-linux
-        path: dist/PyGong
+        path: dist/PyGong-linux
   
   release:
     needs: build
@@ -85,11 +95,9 @@ jobs:
         name: PyGong-linux
         path: dist
     
-    - name: Rename artifacts
+    - name: List artifacts
       run: |
-        ls -la dist/
-        mv dist/PyGong dist/PyGong-linux || true
-        ls -la dist/
+        ls -lah dist/
     
     - name: Create Release
       uses: softprops/action-gh-release@v3
