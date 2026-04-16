@@ -71,27 +71,30 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: PyGong-windows
-        path: artifacts/windows
+        path: dist
     
     - name: Download macOS artifact
       uses: actions/download-artifact@v4
       with:
         name: PyGong-macos
-        path: artifacts/macos
+        path: dist
     
     - name: Download Linux artifact
       uses: actions/download-artifact@v4
       with:
         name: PyGong-linux
-        path: artifacts/linux
+        path: dist
+    
+    - name: Rename artifacts
+      run: |
+        ls -la dist/
+        mv dist/PyGong dist/PyGong-linux || true
+        ls -la dist/
     
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        files: |
-          artifacts/windows/PyGong.exe
-          artifacts/macos/PyGong
-          artifacts/linux/PyGong
+        files: dist/*
         draft: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
