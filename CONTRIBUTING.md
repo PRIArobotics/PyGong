@@ -45,7 +45,7 @@ Haben Sie eine Idee für eine neue Funktion? Bitte erstellen Sie ein [Issue](htt
    ```bash
    python -m venv venv
    source venv/bin/activate  # oder venv\Scripts\activate auf Windows
-   pip install -r requirements.txt
+   pip install -r requirements-dev.txt
    ```
 
 4. **Mache deine Änderungen**
@@ -117,7 +117,8 @@ PyGong/
 ├── .github/
 │   └── workflows/
 │       └── build-release.yml  # CI/CD Pipeline
-├── requirements.txt           # Python-Abhängigkeiten
+├── requirements.txt           # Laufzeit-Abhängigkeiten
+├── requirements-dev.txt       # Dev-/Build-Abhängigkeiten
 ├── README.md
 ├── CONTRIBUTING.md           # Dieses Dokument
 └── LICENSE

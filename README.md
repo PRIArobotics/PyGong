@@ -44,8 +44,11 @@ source venv/bin/activate  # Linux/macOS
 # oder
 venv\Scripts\activate  # Windows
 
-# Abhängigkeiten installieren
+# Laufzeit-Abhängigkeiten installieren
 pip install -r requirements.txt
+
+# Optional: Dev/Build-Tools installieren (z.B. PyInstaller)
+pip install -r requirements-dev.txt
 ```
 
 ### Ausführbare Datei (Releases)
