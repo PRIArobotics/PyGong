@@ -1,13 +1,1 @@
-# Virtual environment created in the repository root (python -m venv .)
-Include/
-Lib/
-Scripts/
-pyvenv.cfg
-
-# Byte-compiled / cache
-__pycache__/
-*.py[cod]
-
-# Misc
-Thumbs.db
-.DS_Store
+*

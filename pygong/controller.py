@@ -32,11 +32,10 @@ class IntervalTimerController:
 
         self._ui = _UiBridge()
 
-        self._audio_output = QAudioOutput()
-        self._audio_output.setVolume(1.0)
-        self._player = QMediaPlayer()
-        self._player.setAudioOutput(self._audio_output)
-        self._player.errorOccurred.connect(self._on_audio_error)  # type: ignore[attr-defined]
+        # Initialize multimedia lazily on first playback. On some Linux systems,
+        # early multimedia init can block before the main window is shown.
+        self._audio_output: QAudioOutput | None = None
+        self._player: QMediaPlayer | None = None
 
         self.view = IntervalTimerView(on_close=self.on_close)
 
@@ -117,7 +116,27 @@ class IntervalTimerController:
     def _effective_sound_path(self) -> str:
         return self.sound_path or self._default_sound
 
+    def _ensure_audio_player(self) -> bool:
+        if self._player is not None and self._audio_output is not None:
+            return True
+
+        try:
+            self._audio_output = QAudioOutput()
+            self._audio_output.setVolume(1.0)
+            self._player = QMediaPlayer()
+            self._player.setAudioOutput(self._audio_output)
+            self._player.errorOccurred.connect(self._on_audio_error)  # type: ignore[attr-defined]
+            return True
+        except Exception as exc:
+            self._ui.log.emit(f"⚠️ Audio-Initialisierung fehlgeschlagen: {exc}")
+            self._audio_output = None
+            self._player = None
+            return False
+
     def _play_sound(self, path: str) -> None:
+        if not self._ensure_audio_player() or self._player is None:
+            return
+
         abs_path = os.path.abspath(path)
         if not os.path.exists(abs_path):
             self._ui.log.emit(f"⚠️ Sound-Datei nicht gefunden: {abs_path}")
@@ -132,6 +151,9 @@ class IntervalTimerController:
 
     def _on_audio_error(self, *args) -> None:
         # Keep it simple: log Qt's current error string.
+        if self._player is None:
+            return
+
         msg = self._player.errorString()
         if msg:
             self._ui.log.emit(f"⚠️ Audio-Fehler: {msg}")
