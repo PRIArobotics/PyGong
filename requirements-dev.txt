@@ -1,4 +1,4 @@
 -r requirements.txt
 
 # Build tooling for local executable generation.
-PyInstaller>=6.0
+PyInstaller>=6.20.0
